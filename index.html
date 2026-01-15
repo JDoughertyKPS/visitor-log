@@ -1,196 +1,227 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>KPS Guard Log</title>
+  <title>Guard Log</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/html5-qrcode"></script>
+
   <style>
-    body{margin:0;font-family:Arial;background:#0f2a44;color:white;}
-    .centered{display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;gap:12px;}
-    input,button{padding:14px;border-radius:8px;border:none;font-size:16px;}
-    input{width:260px;}
-    button{background:#1e90ff;color:white;width:260px;}
-    .hidden{display:none;}
-    .tabbar{position:fixed;bottom:0;width:100%;display:flex;background:#081c30;}
-    .tabbar button{flex:1;background:none;border:none;color:white;padding:14px;font-size:16px;}
-    .content{padding:20px;padding-bottom:80px;}
-    .big-btn{width:100%;font-size:20px;padding:20px;margin-top:20px;}
-    .manual-btn{background:#4fa3ff;margin-top:10px;}
-    .card{background:#163a5f;padding:14px;border-radius:10px;margin-bottom:10px;}
-    .signout-btn{background:#cc3333;margin-top:10px;}
-    .popup{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;justify-content:center;align-items:center;}
-    .popup-content{background:#163a5f;padding:20px;border-radius:12px;width:90%;max-width:320px;display:flex;flex-direction:column;gap:10px;}
-    .search{width:100%;margin-bottom:10px;}
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #0b1d33;
+      color: white;
+    }
+    .hidden { display:none !important; }
+
+    .screen {
+      min-height: 100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    button {
+      background:#1e88e5;
+      color:white;
+      border:none;
+      padding:15px;
+      border-radius:10px;
+      font-size:18px;
+      width:100%;
+      margin-top:10px;
+    }
+
+    button.red { background:#d32f2f; }
+    button.gray { background:#555; }
+
+    input {
+      padding:12px;
+      width:100%;
+      border-radius:8px;
+      border:none;
+      margin-top:10px;
+      font-size:16px;
+    }
+
+    .tabs {
+      position:fixed;
+      bottom:0;
+      width:100%;
+      display:flex;
+      background:#102a4c;
+    }
+
+    .tab {
+      flex:1;
+      text-align:center;
+      padding:12px;
+    }
+
+    .card {
+      background:#142d52;
+      padding:12px;
+      border-radius:10px;
+      margin-top:10px;
+      width:100%;
+    }
+
+    .popup {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.6);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .popup-inner {
+      background:#102a4c;
+      padding:20px;
+      border-radius:12px;
+      width:90%;
+      max-width:400px;
+    }
   </style>
 </head>
 
 <body>
 
-
-<div id="login" class="centered">
-  <h2>KPS Guard Access</h2>
-  <input id="passcode" type="password" placeholder="Enter passcode">
-  <button id="loginBtn">Enter</button>
+<div id="login" class="screen">
+  <h2>Enter Passcode</h2>
+  <input id="passInput" type="password">
+  <button onclick="login()">Enter</button>
 </div>
 
-<div id="sites" class="centered hidden">
+<div id="sites" class="screen hidden">
   <h2>Select Site</h2>
-  <button data-site="Site A">Site A</button>
-  <button data-site="Site B">Site B</button>
-  <button data-site="Site C">Site C</button>
+  <button onclick="selectSite('Site A')">Site A</button>
+  <button onclick="selectSite('Site B')">Site B</button>
+  <button onclick="selectSite('Site C')">Site C</button>
 </div>
 
 <div id="app" class="hidden">
-  <div class="content">
-    <div id="scanTab">
-      <button class="big-btn" id="scanBtn">📷 Scan</button>
-      <button class="big-btn manual-btn" id="manualBtn">✏️ Manual Entry</button>
-      <div id="scanner" class="hidden"></div>
-    </div>
-
-    <div id="onSiteTab" class="hidden">
-      <input class="search" id="search" placeholder="Search name or truck...">
-      <button id="refreshBtn">🔄 Refresh</button>
-      <div id="onSiteList"></div>
-    </div>
+  <div id="scanTab" class="screen hidden">
+    <button onclick="startScan()">📷 Scan</button>
+    <button onclick="openManual()">✏️ Manual Entry</button>
   </div>
 
-  <div class="tabbar">
-    <button data-tab="scan">Scan</button>
-    <button data-tab="onsite">On Site</button>
+  <div id="onSiteTab" class="screen hidden">
+    <input id="search" placeholder="Search..." oninput="renderOnSite()">
+    <button class="gray" onclick="loadOnSite()">Refresh</button>
+    <div id="onSiteList"></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab" onclick="showTab('scan')">Scan</div>
+    <div class="tab" onclick="showTab('onSite')">On Site</div>
   </div>
 </div>
 
+<div id="scanner" class="hidden"></div>
+
 <div id="manualPopup" class="popup hidden">
-  <div class="popup-content">
+  <div class="popup-inner">
+    <h3>Manual Entry</h3>
     <input id="manualName" placeholder="Driver Name">
     <input id="manualTruck" placeholder="Truck Info">
-    <input id="manualTime" type="datetime-local">
-    <button id="manualSubmit">Check In</button>
-    <button id="manualCancel">Cancel</button>
+    <input id="manualTime">
+    <button onclick="submitManual()">Check In</button>
+    <button class="gray" onclick="closeManual()">Cancel</button>
   </div>
 </div>
 
 <div id="confirmPopup" class="popup hidden">
-  <div class="popup-content">
-    <p>Sign this person out?</p>
-    <button id="confirmYes">Yes</button>
-    <button id="confirmNo">Cancel</button>
+  <div class="popup-inner">
+    <h3>Sign this person out?</h3>
+    <button class="red" onclick="confirmSignOut()">Yes</button>
+    <button class="gray" onclick="closeConfirm()">Cancel</button>
   </div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+const PASS = "KpsGuard15857!";
+let site = "";
+let signOutTarget = null;
 
-  const PASSCODE = "KpsGuard15857!";
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
 
-  let site = "";
-  let currentSignOutId = null;
-  let onSiteData = [];
+function login() {
+  if (passInput.value === PASS) {
+    login.classList.add("hidden");
+    sites.classList.remove("hidden");
+  } else alert("Wrong passcode");
+}
 
-  const el = id => document.getElementById(id);
+function selectSite(s) {
+  site = s;
+  sites.classList.add("hidden");
+  app.classList.remove("hidden");
+  showTab("scan");
+  loadOnSite();
+}
 
-  const screens = ["login","sites","app","manualPopup","confirmPopup","scanTab","onSiteTab"];
+function showTab(t) {
+  scanTab.classList.toggle("hidden", t !== "scan");
+  onSiteTab.classList.toggle("hidden", t !== "onSite");
+}
 
-  // Force clean initial UI state
-  screens.forEach(id => el(id)?.classList.add("hidden"));
-  el("login").classList.remove("hidden");
-
-  function api(p) {
-    return fetch(SCRIPT_URL + "?" + new URLSearchParams(p)).then(r => r.json());
-  }
-
-  el("loginBtn").onclick = () => {
-    if (el("passcode").value === PASSCODE) {
-      el("login").classList.add("hidden");
-      el("sites").classList.remove("hidden");
-    } else alert("Wrong passcode");
-  };
-
-  document.querySelectorAll("#sites button").forEach(b => {
-    b.onclick = () => {
-      site = b.dataset.site;
-      el("sites").classList.add("hidden");
-      el("app").classList.remove("hidden");
-      showTab("scan");
-    };
+function startScan() {
+  scanner.classList.remove("hidden");
+  const qr = new Html5Qrcode("scanner");
+  qr.start({ facingMode:"environment" }, {}, txt => {
+    qr.stop();
+    scanner.classList.add("hidden");
+    handleCheckIn(txt,"");
   });
+}
 
-  document.querySelectorAll(".tabbar button").forEach(b => {
-    b.onclick = () => showTab(b.dataset.tab);
+function openManual() {
+  manualTime.value = new Date().toLocaleString();
+  manualPopup.classList.remove("hidden");
+}
+
+function closeManual(){ manualPopup.classList.add("hidden"); }
+
+function submitManual(){
+  handleCheckIn(manualName.value, manualTruck.value, manualTime.value);
+  closeManual();
+}
+
+function handleCheckIn(name, truck, time = new Date().toLocaleString()) {
+  fetch(SCRIPT_URL + `?site=${encodeURIComponent(site)}&action=in&name=${encodeURIComponent(name)}&truck=${encodeURIComponent(truck)}&time=${encodeURIComponent(time)}`)
+    .then(loadOnSite);
+}
+
+function loadOnSite() {
+  fetch(SCRIPT_URL + `?site=${encodeURIComponent(site)}&action=list`)
+    .then(r=>r.json())
+    .then(d => { window.onSite = d; renderOnSite(); });
+}
+
+function renderOnSite() {
+  const q = search.value.toLowerCase();
+  onSiteList.innerHTML = "";
+  (window.onSite||[]).filter(x => (x.name+x.truck).toLowerCase().includes(q)).forEach(p => {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.innerHTML = `<b>${p.name}</b><br>${p.truck}<br><button class="red">Sign Out</button>`;
+    d.querySelector("button").onclick = ()=>askSignOut(p);
+    onSiteList.appendChild(d);
   });
+}
 
-  function showTab(tab) {
-    el("scanTab").classList.toggle("hidden", tab !== "scan");
-    el("onSiteTab").classList.toggle("hidden", tab !== "onsite");
-    if (tab === "onsite") loadOnSite();
-  }
+function askSignOut(p){ signOutTarget = p; confirmPopup.classList.remove("hidden"); }
+function closeConfirm(){ confirmPopup.classList.add("hidden"); }
 
-  el("manualBtn").onclick = () => {
-    el("manualTime").value = new Date().toISOString().slice(0,16);
-    el("manualPopup").classList.remove("hidden");
-  };
-
-  el("manualCancel").onclick = () => el("manualPopup").classList.add("hidden");
-
-  el("manualSubmit").onclick = () => {
-    api({
-      action:"checkin",
-      site,
-      name:el("manualName").value,
-      truck:el("manualTruck").value,
-      time:el("manualTime").value
-    });
-    el("manualPopup").classList.add("hidden");
-  };
-
-  el("scanBtn").onclick = () => {
-    const scanner = new Html5Qrcode("scanner");
-    el("scanner").classList.remove("hidden");
-    scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, text => {
-      const [n,t] = text.split("|");
-      api({action:"checkin", site, name:n||"", truck:t||"", time:new Date().toISOString()});
-      scanner.stop();
-      el("scanner").classList.add("hidden");
-    });
-  };
-
-  function loadOnSite() {
-    api({action:"onsite", site}).then(d => {
-      onSiteData = d;
-      renderOnSite();
-    });
-  }
-
-  el("refreshBtn").onclick = loadOnSite;
-  el("search").oninput = renderOnSite;
-
-  function renderOnSite() {
-    const q = el("search").value.toLowerCase();
-    el("onSiteList").innerHTML = "";
-    onSiteData.filter(p => (p.name+p.truck).toLowerCase().includes(q)).forEach(p => {
-      const d = document.createElement("div");
-      d.className = "card";
-      d.innerHTML = `<b>${p.name}</b><br>${p.truck}<br>${p.time}
-        <button class="signout-btn">Sign Out</button>`;
-      d.querySelector("button").onclick = () => {
-        currentSignOutId = p.id;
-        el("confirmPopup").classList.remove("hidden");
-      };
-      el("onSiteList").appendChild(d);
-    });
-  }
-
-  el("confirmYes").onclick = () => {
-    api({action:"signout", site, id:currentSignOutId}).then(loadOnSite);
-    el("confirmPopup").classList.add("hidden");
-  };
-
-  el("confirmNo").onclick = () => el("confirmPopup").classList.add("hidden");
-
-});
+function confirmSignOut(){
+  fetch(SCRIPT_URL + `?site=${encodeURIComponent(site)}&action=out&id=${encodeURIComponent(signOutTarget.id)}`)
+    .then(()=>{ closeConfirm(); loadOnSite(); });
+}
 </script>
 
+</body>
 </html>
