@@ -27,8 +27,6 @@
 
 <body>
 
-  <div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;">VERSION 2</div>
-
 
 <div id="login" class="centered">
   <h2>KPS Guard Access</h2>
@@ -92,28 +90,30 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentSignOutId = null;
   let onSiteData = [];
 
-  const login = document.getElementById("login");
-  const sites = document.getElementById("sites");
-  const app = document.getElementById("app");
-  const scanTab = document.getElementById("scanTab");
-  const onSiteTab = document.getElementById("onSiteTab");
-  const manualPopup = document.getElementById("manualPopup");
-  const confirmPopup = document.getElementById("confirmPopup");
+  const el = id => document.getElementById(id);
 
-  const api = p => fetch(SCRIPT_URL + "?" + new URLSearchParams(p)).then(r => r.json());
+  const screens = ["login","sites","app","manualPopup","confirmPopup","scanTab","onSiteTab"];
 
-  document.getElementById("loginBtn").onclick = () => {
-    if (document.getElementById("passcode").value === PASSCODE) {
-      login.classList.add("hidden");
-      sites.classList.remove("hidden");
+  // Force clean initial UI state
+  screens.forEach(id => el(id)?.classList.add("hidden"));
+  el("login").classList.remove("hidden");
+
+  function api(p) {
+    return fetch(SCRIPT_URL + "?" + new URLSearchParams(p)).then(r => r.json());
+  }
+
+  el("loginBtn").onclick = () => {
+    if (el("passcode").value === PASSCODE) {
+      el("login").classList.add("hidden");
+      el("sites").classList.remove("hidden");
     } else alert("Wrong passcode");
   };
 
-  sites.querySelectorAll("button").forEach(b => {
+  document.querySelectorAll("#sites button").forEach(b => {
     b.onclick = () => {
       site = b.dataset.site;
-      sites.classList.add("hidden");
-      app.classList.remove("hidden");
+      el("sites").classList.add("hidden");
+      el("app").classList.remove("hidden");
       showTab("scan");
     };
   });
@@ -123,48 +123,53 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function showTab(tab) {
-    scanTab.classList.toggle("hidden", tab !== "scan");
-    onSiteTab.classList.toggle("hidden", tab !== "onsite");
+    el("scanTab").classList.toggle("hidden", tab !== "scan");
+    el("onSiteTab").classList.toggle("hidden", tab !== "onsite");
     if (tab === "onsite") loadOnSite();
   }
 
-  document.getElementById("manualBtn").onclick = () => {
-    document.getElementById("manualTime").value = new Date().toISOString().slice(0,16);
-    manualPopup.classList.remove("hidden");
+  el("manualBtn").onclick = () => {
+    el("manualTime").value = new Date().toISOString().slice(0,16);
+    el("manualPopup").classList.remove("hidden");
   };
 
-  document.getElementById("manualCancel").onclick = () => manualPopup.classList.add("hidden");
+  el("manualCancel").onclick = () => el("manualPopup").classList.add("hidden");
 
-  document.getElementById("manualSubmit").onclick = () => {
+  el("manualSubmit").onclick = () => {
     api({
-      action: "checkin",
+      action:"checkin",
       site,
-      name: manualName.value,
-      truck: manualTruck.value,
-      time: manualTime.value
+      name:el("manualName").value,
+      truck:el("manualTruck").value,
+      time:el("manualTime").value
     });
-    manualPopup.classList.add("hidden");
+    el("manualPopup").classList.add("hidden");
   };
 
-  document.getElementById("scanBtn").onclick = () => {
+  el("scanBtn").onclick = () => {
     const scanner = new Html5Qrcode("scanner");
+    el("scanner").classList.remove("hidden");
     scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, text => {
       const [n,t] = text.split("|");
       api({action:"checkin", site, name:n||"", truck:t||"", time:new Date().toISOString()});
       scanner.stop();
+      el("scanner").classList.add("hidden");
     });
   };
 
   function loadOnSite() {
-    api({action:"onsite", site}).then(d => { onSiteData = d; renderOnSite(); });
+    api({action:"onsite", site}).then(d => {
+      onSiteData = d;
+      renderOnSite();
+    });
   }
 
-  document.getElementById("refreshBtn").onclick = loadOnSite;
-  document.getElementById("search").oninput = renderOnSite;
+  el("refreshBtn").onclick = loadOnSite;
+  el("search").oninput = renderOnSite;
 
   function renderOnSite() {
-    const q = search.value.toLowerCase();
-    onSiteList.innerHTML = "";
+    const q = el("search").value.toLowerCase();
+    el("onSiteList").innerHTML = "";
     onSiteData.filter(p => (p.name+p.truck).toLowerCase().includes(q)).forEach(p => {
       const d = document.createElement("div");
       d.className = "card";
@@ -172,21 +177,20 @@ document.addEventListener("DOMContentLoaded", () => {
         <button class="signout-btn">Sign Out</button>`;
       d.querySelector("button").onclick = () => {
         currentSignOutId = p.id;
-        confirmPopup.classList.remove("hidden");
+        el("confirmPopup").classList.remove("hidden");
       };
-      onSiteList.appendChild(d);
+      el("onSiteList").appendChild(d);
     });
   }
 
-  document.getElementById("confirmYes").onclick = () => {
+  el("confirmYes").onclick = () => {
     api({action:"signout", site, id:currentSignOutId}).then(loadOnSite);
-    confirmPopup.classList.add("hidden");
+    el("confirmPopup").classList.add("hidden");
   };
 
-  document.getElementById("confirmNo").onclick = () => confirmPopup.classList.add("hidden");
+  el("confirmNo").onclick = () => el("confirmPopup").classList.add("hidden");
 
 });
 </script>
 
-</body>
 </html>
