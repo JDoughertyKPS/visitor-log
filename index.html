@@ -143,33 +143,40 @@
 </div>
 
 <script>
-const PASS = "KpsGuard15857!";
+const PASS = "test";  // changed to test
 let site = "";
 let signOutTarget = null;
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
 
 function login() {
+  const passInput = document.getElementById("passInput");
+  const loginScreen = document.getElementById("loginScreen");
+  const sites = document.getElementById("sites");
+
   if (passInput.value === PASS) {
     loginScreen.classList.add("hidden");
     sites.classList.remove("hidden");
-  } else alert("Wrong passcode");
+  } else {
+    alert("Wrong passcode");
+  }
 }
 
 function selectSite(s) {
   site = s;
-  sites.classList.add("hidden");
-  app.classList.remove("hidden");
+  document.getElementById("sites").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
   showTab("scan");
   loadOnSite();
 }
 
 function showTab(t) {
-  scanTab.classList.toggle("hidden", t !== "scan");
-  onSiteTab.classList.toggle("hidden", t !== "onSite");
+  document.getElementById("scanTab").classList.toggle("hidden", t !== "scan");
+  document.getElementById("onSiteTab").classList.toggle("hidden", t !== "onSite");
 }
 
 function startScan() {
+  const scanner = document.getElementById("scanner");
   scanner.classList.remove("hidden");
   const qr = new Html5Qrcode("scanner");
   qr.start({ facingMode:"environment" }, {}, txt => {
@@ -180,14 +187,16 @@ function startScan() {
 }
 
 function openManual() {
-  manualTime.value = new Date().toLocaleString();
-  manualPopup.classList.remove("hidden");
+  document.getElementById("manualTime").value = new Date().toLocaleString();
+  document.getElementById("manualPopup").classList.remove("hidden");
 }
 
-function closeManual(){ manualPopup.classList.add("hidden"); }
+function closeManual(){ document.getElementById("manualPopup").classList.add("hidden"); }
 
 function submitManual(){
-  handleCheckIn(manualName.value, manualTruck.value, manualTime.value);
+  handleCheckIn(document.getElementById("manualName").value,
+                document.getElementById("manualTruck").value,
+                document.getElementById("manualTime").value);
   closeManual();
 }
 
@@ -203,7 +212,8 @@ function loadOnSite() {
 }
 
 function renderOnSite() {
-  const q = search.value.toLowerCase();
+  const q = document.getElementById("search").value.toLowerCase();
+  const onSiteList = document.getElementById("onSiteList");
   onSiteList.innerHTML = "";
   (window.onSite||[]).filter(x => (x.name+x.truck).toLowerCase().includes(q)).forEach(p => {
     const d = document.createElement("div");
@@ -214,8 +224,8 @@ function renderOnSite() {
   });
 }
 
-function askSignOut(p){ signOutTarget = p; confirmPopup.classList.remove("hidden"); }
-function closeConfirm(){ confirmPopup.classList.add("hidden"); }
+function askSignOut(p){ signOutTarget = p; document.getElementById("confirmPopup").classList.remove("hidden"); }
+function closeConfirm(){ document.getElementById("confirmPopup").classList.add("hidden"); }
 
 function confirmSignOut(){
   fetch(SCRIPT_URL + `?site=${encodeURIComponent(site)}&action=out&id=${encodeURIComponent(signOutTarget.id)}`)
