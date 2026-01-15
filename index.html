@@ -4,15 +4,13 @@
   <meta charset="UTF-8">
   <title>KPS Guard Log</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <script src="https://unpkg.com/html5-qrcode"></script>
-
   <style>
-    body { margin:0; font-family:Arial; background:#0f2a44; color:white; }
-    .centered { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; gap:12px; }
-    input,button { padding:14px; border-radius:8px; border:none; font-size:16px; }
-    input { width:260px; }
-    button { background:#1e90ff; color:white; width:260px; }
+    body{margin:0;font-family:Arial;background:#0f2a44;color:white;}
+    .centered{display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;gap:12px;}
+    input,button{padding:14px;border-radius:8px;border:none;font-size:16px;}
+    input{width:260px;}
+    button{background:#1e90ff;color:white;width:260px;}
     .hidden{display:none;}
     .tabbar{position:fixed;bottom:0;width:100%;display:flex;background:#081c30;}
     .tabbar button{flex:1;background:none;border:none;color:white;padding:14px;font-size:16px;}
@@ -32,34 +30,34 @@
 <div id="login" class="centered">
   <h2>KPS Guard Access</h2>
   <input id="passcode" type="password" placeholder="Enter passcode">
-  <button onclick="login()">Enter</button>
+  <button id="loginBtn">Enter</button>
 </div>
 
 <div id="sites" class="centered hidden">
   <h2>Select Site</h2>
-  <button onclick="selectSite('Site A')">Site A</button>
-  <button onclick="selectSite('Site B')">Site B</button>
-  <button onclick="selectSite('Site C')">Site C</button>
+  <button data-site="Site A">Site A</button>
+  <button data-site="Site B">Site B</button>
+  <button data-site="Site C">Site C</button>
 </div>
 
 <div id="app" class="hidden">
   <div class="content">
     <div id="scanTab">
-      <button class="big-btn" onclick="startScan()">📷 Scan</button>
-      <button class="big-btn manual-btn" onclick="openManual()">✏️ Manual Entry</button>
+      <button class="big-btn" id="scanBtn">📷 Scan</button>
+      <button class="big-btn manual-btn" id="manualBtn">✏️ Manual Entry</button>
       <div id="scanner" class="hidden"></div>
     </div>
 
     <div id="onSiteTab" class="hidden">
-      <input class="search" id="search" placeholder="Search name or truck..." oninput="renderOnSite()">
-      <button onclick="loadOnSite()">🔄 Refresh</button>
+      <input class="search" id="search" placeholder="Search name or truck...">
+      <button id="refreshBtn">🔄 Refresh</button>
       <div id="onSiteList"></div>
     </div>
   </div>
 
   <div class="tabbar">
-    <button onclick="showTab('scan')">Scan</button>
-    <button onclick="showTab('onsite')">On Site</button>
+    <button data-tab="scan">Scan</button>
+    <button data-tab="onsite">On Site</button>
   </div>
 </div>
 
@@ -68,37 +66,123 @@
     <input id="manualName" placeholder="Driver Name">
     <input id="manualTruck" placeholder="Truck Info">
     <input id="manualTime" type="datetime-local">
-    <button onclick="submitManual()">Check In</button>
-    <button onclick="closeManual()">Cancel</button>
+    <button id="manualSubmit">Check In</button>
+    <button id="manualCancel">Cancel</button>
   </div>
 </div>
 
 <div id="confirmPopup" class="popup hidden">
   <div class="popup-content">
     <p>Sign this person out?</p>
-    <button id="confirmBtn">Yes</button>
-    <button onclick="closeConfirm()">Cancel</button>
+    <button id="confirmYes">Yes</button>
+    <button id="confirmNo">Cancel</button>
   </div>
 </div>
 
 <script>
-const PASSCODE = "KpsGuard15857!";
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
-let site="", currentSignOutId=null, onSiteData=[];
+document.addEventListener("DOMContentLoaded", () => {
 
-function api(p){return fetch(SCRIPT_URL+"?"+new URLSearchParams(p)).then(r=>r.json());}
-function login(){document.getElementById("passcode").value===PASSCODE?(loginDiv=document.getElementById("login"),sitesDiv=document.getElementById("sites"),loginDiv.classList.add("hidden"),sitesDiv.classList.remove("hidden")):alert("Wrong passcode");}
-function selectSite(s){site=s;document.getElementById("sites").classList.add("hidden");document.getElementById("app").classList.remove("hidden");showTab("scan");}
-function showTab(t){document.getElementById("scanTab").classList.toggle("hidden",t!=="scan");document.getElementById("onSiteTab").classList.toggle("hidden",t!=="onsite");if(t==="onsite")loadOnSite();}
-function openManual(){document.getElementById("manualTime").value=new Date().toISOString().slice(0,16);document.getElementById("manualPopup").classList.remove("hidden");}
-function closeManual(){document.getElementById("manualPopup").classList.add("hidden");}
-function submitManual(){api({action:"checkin",site,name:manualName.value,truck:manualTruck.value,time:manualTime.value});closeManual();}
-function startScan(){const s=new Html5Qrcode("scanner");scanner.classList.remove("hidden");s.start({facingMode:"environment"},{fps:10,qrbox:250},t=>{const[a,b]=t.split("|");api({action:"checkin",site,name:a||"",truck:b||"",time:new Date().toISOString()});s.stop();scanner.classList.add("hidden");});}
-function loadOnSite(){api({action:"onsite",site}).then(d=>{onSiteData=d;renderOnSite();});}
-function renderOnSite(){const s=search.value.toLowerCase(),l=onSiteList;l.innerHTML="";onSiteData.filter(p=>(p.name+p.truck).toLowerCase().includes(s)).forEach(p=>{const d=document.createElement("div");d.className="card";d.innerHTML=`<b>${p.name}</b><br>${p.truck}<br>${p.time}<button class="signout-btn" onclick="confirmSignOut('${p.id}')">Sign Out</button>`;l.appendChild(d);});}
-function confirmSignOut(i){currentSignOutId=i;confirmPopup.classList.remove("hidden");}
-function closeConfirm(){confirmPopup.classList.add("hidden");}
-confirmBtn.onclick=()=>{api({action:"signout",site,id:currentSignOutId}).then(loadOnSite);closeConfirm();};
+  const PASSCODE = "KpsGuard15857!";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
+
+  let site = "";
+  let currentSignOutId = null;
+  let onSiteData = [];
+
+  const login = document.getElementById("login");
+  const sites = document.getElementById("sites");
+  const app = document.getElementById("app");
+  const scanTab = document.getElementById("scanTab");
+  const onSiteTab = document.getElementById("onSiteTab");
+  const manualPopup = document.getElementById("manualPopup");
+  const confirmPopup = document.getElementById("confirmPopup");
+
+  const api = p => fetch(SCRIPT_URL + "?" + new URLSearchParams(p)).then(r => r.json());
+
+  document.getElementById("loginBtn").onclick = () => {
+    if (document.getElementById("passcode").value === PASSCODE) {
+      login.classList.add("hidden");
+      sites.classList.remove("hidden");
+    } else alert("Wrong passcode");
+  };
+
+  sites.querySelectorAll("button").forEach(b => {
+    b.onclick = () => {
+      site = b.dataset.site;
+      sites.classList.add("hidden");
+      app.classList.remove("hidden");
+      showTab("scan");
+    };
+  });
+
+  document.querySelectorAll(".tabbar button").forEach(b => {
+    b.onclick = () => showTab(b.dataset.tab);
+  });
+
+  function showTab(tab) {
+    scanTab.classList.toggle("hidden", tab !== "scan");
+    onSiteTab.classList.toggle("hidden", tab !== "onsite");
+    if (tab === "onsite") loadOnSite();
+  }
+
+  document.getElementById("manualBtn").onclick = () => {
+    document.getElementById("manualTime").value = new Date().toISOString().slice(0,16);
+    manualPopup.classList.remove("hidden");
+  };
+
+  document.getElementById("manualCancel").onclick = () => manualPopup.classList.add("hidden");
+
+  document.getElementById("manualSubmit").onclick = () => {
+    api({
+      action: "checkin",
+      site,
+      name: manualName.value,
+      truck: manualTruck.value,
+      time: manualTime.value
+    });
+    manualPopup.classList.add("hidden");
+  };
+
+  document.getElementById("scanBtn").onclick = () => {
+    const scanner = new Html5Qrcode("scanner");
+    scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, text => {
+      const [n,t] = text.split("|");
+      api({action:"checkin", site, name:n||"", truck:t||"", time:new Date().toISOString()});
+      scanner.stop();
+    });
+  };
+
+  function loadOnSite() {
+    api({action:"onsite", site}).then(d => { onSiteData = d; renderOnSite(); });
+  }
+
+  document.getElementById("refreshBtn").onclick = loadOnSite;
+  document.getElementById("search").oninput = renderOnSite;
+
+  function renderOnSite() {
+    const q = search.value.toLowerCase();
+    onSiteList.innerHTML = "";
+    onSiteData.filter(p => (p.name+p.truck).toLowerCase().includes(q)).forEach(p => {
+      const d = document.createElement("div");
+      d.className = "card";
+      d.innerHTML = `<b>${p.name}</b><br>${p.truck}<br>${p.time}
+        <button class="signout-btn">Sign Out</button>`;
+      d.querySelector("button").onclick = () => {
+        currentSignOutId = p.id;
+        confirmPopup.classList.remove("hidden");
+      };
+      onSiteList.appendChild(d);
+    });
+  }
+
+  document.getElementById("confirmYes").onclick = () => {
+    api({action:"signout", site, id:currentSignOutId}).then(loadOnSite);
+    confirmPopup.classList.add("hidden");
+  };
+
+  document.getElementById("confirmNo").onclick = () => confirmPopup.classList.add("hidden");
+
+});
 </script>
 
 </body>
