@@ -1,23 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width">
-<title>Visitor Log</title>
-<style>
-body { font-family: sans-serif; padding: 20px; }
-.hidden { display: none; }
-button { padding: 15px; margin: 10px; font-size: 18px; }
-</style>
+  <meta charset="UTF-8">
+  <title>KPS Guard Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body { margin:0; font-family:Arial; background:#0f2a44; color:white; }
+    .centered { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; gap:12px; }
+    input,button { padding:14px; border-radius:8px; border:none; font-size:16px; }
+    input { width:260px; }
+    button { background:#1e90ff; color:white; width:260px; }
+    .hidden{display:none;}
+    .tabbar{position:fixed;bottom:0;width:100%;display:flex;background:#081c30;}
+    .tabbar button{flex:1;background:none;border:none;color:white;padding:14px;font-size:16px;}
+    .content{padding:20px;padding-bottom:80px;}
+    .big-btn{width:100%;font-size:20px;padding:20px;margin-top:20px;}
+    .manual-btn{background:#4fa3ff;margin-top:10px;}
+    .card{background:#163a5f;padding:14px;border-radius:10px;margin-bottom:10px;}
+    .signout-btn{background:#cc3333;margin-top:10px;}
+    .popup{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;justify-content:center;align-items:center;}
+    .popup-content{background:#163a5f;padding:20px;border-radius:12px;width:90%;max-width:320px;display:flex;flex-direction:column;gap:10px;}
+    .search{width:100%;margin-bottom:10px;}
+  </style>
 </head>
+
 <body>
 
-<div id="login">
-  <h2>Enter Passcode</h2>
-  <input type="password" id="code">
+<div id="login" class="centered">
+  <h2>KPS Guard Access</h2>
+  <input id="passcode" type="password" placeholder="Enter passcode">
   <button onclick="login()">Enter</button>
 </div>
 
-<div id="site" class="hidden">
+<div id="sites" class="centered hidden">
   <h2>Select Site</h2>
   <button onclick="selectSite('Site A')">Site A</button>
   <button onclick="selectSite('Site B')">Site B</button>
@@ -25,92 +43,63 @@ button { padding: 15px; margin: 10px; font-size: 18px; }
 </div>
 
 <div id="app" class="hidden">
-  <h2 id="siteTitle"></h2>
-  <button onclick="showTab('scan')">Scan</button>
-  <button onclick="showTab('onsite')">On Site</button>
+  <div class="content">
+    <div id="scanTab">
+      <button class="big-btn" onclick="startScan()">📷 Scan</button>
+      <button class="big-btn manual-btn" onclick="openManual()">✏️ Manual Entry</button>
+      <div id="scanner" class="hidden"></div>
+    </div>
 
-  <div id="scan">
-    <button onclick="manual()">Manual Entry</button>
-    <div id="form" class="hidden">
-      <input placeholder="Driver" id="driver"><br>
-      <input placeholder="Truck" id="truck"><br>
-      <button onclick="checkin()">Check In</button>
+    <div id="onSiteTab" class="hidden">
+      <input class="search" id="search" placeholder="Search name or truck..." oninput="renderOnSite()">
+      <button onclick="loadOnSite()">🔄 Refresh</button>
+      <div id="onSiteList"></div>
     </div>
   </div>
 
-  <div id="onsite" class="hidden"></div>
+  <div class="tabbar">
+    <button onclick="showTab('scan')">Scan</button>
+    <button onclick="showTab('onsite')">On Site</button>
+  </div>
+</div>
+
+<div id="manualPopup" class="popup hidden">
+  <div class="popup-content">
+    <input id="manualName" placeholder="Driver Name">
+    <input id="manualTruck" placeholder="Truck Info">
+    <input id="manualTime" type="datetime-local">
+    <button onclick="submitManual()">Check In</button>
+    <button onclick="closeManual()">Cancel</button>
+  </div>
+</div>
+
+<div id="confirmPopup" class="popup hidden">
+  <div class="popup-content">
+    <p>Sign this person out?</p>
+    <button id="confirmBtn">Yes</button>
+    <button onclick="closeConfirm()">Cancel</button>
+  </div>
 </div>
 
 <script>
-const GUARD = "KpsGuard15857!";
-const ADMIN = "Kps17701";
-const API = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
+const PASSCODE = "KpsGuard15857!";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCjG1wuWr9E_ziMdYQs9zeSRuzoMp9J5LrFdi9IRWcEoGLYm3Z/exec";
+let site="", currentSignOutId=null, onSiteData=[];
 
-let role = "", site = "";
-
-function login() {
-  const c = code.value;
-  if (c === GUARD) role = "guard";
-  if (c === ADMIN) role = "admin";
-  if (!role) return alert("Invalid code");
-  document.getElementById("login").classList.add("hidden");
-  document.getElementById("site").classList.remove("hidden");
-}
-
-function selectSite(s) {
-  site = s;
-  document.getElementById("site").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-  document.getElementById("siteTitle").innerText = s;
-}
-
-function showTab(t) {
-  document.getElementById("scan").classList.toggle("hidden", t !== "scan");
-  document.getElementById("onsite").classList.toggle("hidden", t !== "onsite");
-  if (t === "onsite") loadOnSite();
-}
-
-function manual() {
-  document.getElementById("form").classList.remove("hidden");
-}
-
-function checkin() {
-  fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "checkin",
-      site,
-      driver: driver.value,
-      truck: truck.value
-    })
-  });
-  driver.value = truck.value = "";
-  alert("Checked In");
-}
-
-function loadOnSite() {
-  fetch(API + "?site=" + encodeURIComponent(site))
-    .then(r => r.json())
-    .then(rows => {
-      const div = document.getElementById("onsite");
-      div.innerHTML = "";
-      rows.slice(1).filter(r => r[4] === "On Site").forEach(r => {
-        const b = document.createElement("button");
-        b.textContent = r[2] + " (" + r[3] + ")";
-        b.onclick = () => checkout(r[2]);
-        div.appendChild(b);
-      });
-    });
-}
-
-function checkout(driver) {
-  fetch(API, {
-    method: "POST",
-    body: JSON.stringify({ action: "checkout", site, driver })
-  });
-  loadOnSite();
-}
+function api(p){return fetch(SCRIPT_URL+"?"+new URLSearchParams(p)).then(r=>r.json());}
+function login(){document.getElementById("passcode").value===PASSCODE?(loginDiv=document.getElementById("login"),sitesDiv=document.getElementById("sites"),loginDiv.classList.add("hidden"),sitesDiv.classList.remove("hidden")):alert("Wrong passcode");}
+function selectSite(s){site=s;document.getElementById("sites").classList.add("hidden");document.getElementById("app").classList.remove("hidden");showTab("scan");}
+function showTab(t){document.getElementById("scanTab").classList.toggle("hidden",t!=="scan");document.getElementById("onSiteTab").classList.toggle("hidden",t!=="onsite");if(t==="onsite")loadOnSite();}
+function openManual(){document.getElementById("manualTime").value=new Date().toISOString().slice(0,16);document.getElementById("manualPopup").classList.remove("hidden");}
+function closeManual(){document.getElementById("manualPopup").classList.add("hidden");}
+function submitManual(){api({action:"checkin",site,name:manualName.value,truck:manualTruck.value,time:manualTime.value});closeManual();}
+function startScan(){const s=new Html5Qrcode("scanner");scanner.classList.remove("hidden");s.start({facingMode:"environment"},{fps:10,qrbox:250},t=>{const[a,b]=t.split("|");api({action:"checkin",site,name:a||"",truck:b||"",time:new Date().toISOString()});s.stop();scanner.classList.add("hidden");});}
+function loadOnSite(){api({action:"onsite",site}).then(d=>{onSiteData=d;renderOnSite();});}
+function renderOnSite(){const s=search.value.toLowerCase(),l=onSiteList;l.innerHTML="";onSiteData.filter(p=>(p.name+p.truck).toLowerCase().includes(s)).forEach(p=>{const d=document.createElement("div");d.className="card";d.innerHTML=`<b>${p.name}</b><br>${p.truck}<br>${p.time}<button class="signout-btn" onclick="confirmSignOut('${p.id}')">Sign Out</button>`;l.appendChild(d);});}
+function confirmSignOut(i){currentSignOutId=i;confirmPopup.classList.remove("hidden");}
+function closeConfirm(){confirmPopup.classList.add("hidden");}
+confirmBtn.onclick=()=>{api({action:"signout",site,id:currentSignOutId}).then(loadOnSite);closeConfirm();};
 </script>
+
 </body>
 </html>
-
