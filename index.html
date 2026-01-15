@@ -1,125 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Guard Log</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/html5-qrcode"></script>
+<meta charset="UTF-8">
+<title>Guard Log</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/html5-qrcode"></script>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, sans-serif;
-      background: #0b1d33;
-      color: white;
-    }
-    .hidden { display:none !important; }
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #0b1d33;
+  color: white;
+}
+.hidden { display:none !important; }
 
-    .screen {
-      min-height: 100vh;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-    }
+.screen {
+  min-height: 100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
 
-    button {
-      background:#1e88e5;
-      color:white;
-      border:none;
-      padding:15px;
-      border-radius:10px;
-      font-size:18px;
-      width:100%;
-      margin-top:10px;
-    }
+button {
+  background:#1e88e5;
+  color:white;
+  border:none;
+  padding:15px;
+  border-radius:10px;
+  font-size:18px;
+  width:100%;
+  margin-top:10px;
+}
 
-    button.red { background:#d32f2f; }
-    button.gray { background:#555; }
+button.red { background:#d32f2f; }
+button.gray { background:#555; }
 
-    input {
-      padding:12px;
-      width:100%;
-      border-radius:8px;
-      border:none;
-      margin-top:10px;
-      font-size:16px;
-    }
+input {
+  padding:12px;
+  width:100%;
+  border-radius:8px;
+  border:none;
+  margin-top:10px;
+  font-size:16px;
+}
 
-    .tabs {
-      position:fixed;
-      bottom:0;
-      width:100%;
-      display:flex;
-      background:#102a4c;
-    }
+.tabs {
+  position:fixed;
+  bottom:0;
+  width:100%;
+  display:flex;
+  background:#102a4c;
+}
 
-    .tab {
-      flex:1;
-      text-align:center;
-      padding:12px;
-    }
+.tab {
+  flex:1;
+  text-align:center;
+  padding:12px;
+}
 
-    .card {
-      background:#142d52;
-      padding:12px;
-      border-radius:10px;
-      margin-top:10px;
-      width:100%;
-    }
+.card {
+  background:#142d52;
+  padding:12px;
+  border-radius:10px;
+  margin-top:10px;
+  width:100%;
+}
 
-    .popup {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.6);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
+.popup {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 
-    .popup-inner {
-      background:#102a4c;
-      padding:20px;
-      border-radius:12px;
-      width:90%;
-      max-width:400px;
-      display:flex;
-      flex-direction:column;
-    }
+.popup-inner {
+  background:#102a4c;
+  padding:20px;
+  border-radius:12px;
+  width:90%;
+  max-width:400px;
+  display:flex;
+  flex-direction:column;
+}
 
-    /* Scanner popup */
-    #scannerPopup {
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,0.85);
-      display:flex;
-      align-items:flex-start;
-      justify-content:center;
-      flex-direction:column;
-      z-index:1000;
-      padding-top:50px;
-    }
+/* Scanner popup */
+#scannerPopup {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.85);
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  flex-direction:column;
+  z-index:1000;
+  padding-top:50px;
+}
 
-    #scannerPopup #scanner {
-      width:300px;
-      height:300px;
-      background:black;
-    }
+#scannerPopup #scanner {
+  width:300px;
+  height:300px;
+  background:black;
+}
 
-    #scannerPopup #scanner + button {
-      margin-top:20px; /* move cancel button below camera */
-      align-self:center;
-      z-index:1001;
-    }
-  </style>
+#scannerPopup #scanner + button {
+  margin-top:20px; /* move cancel button below camera */
+  align-self:center;
+  z-index:1001;
+}
+</style>
 </head>
 
 <body>
 
 <!-- Version banner -->
 <div style="position:fixed;top:0;left:0;background:red;color:white;padding:5px;z-index:9999;font-weight:bold;">
-APP VERSION: v4
+APP VERSION: v5
 </div>
 
 <div id="loginScreen" class="screen">
@@ -232,19 +232,11 @@ function submitManual(){
   closeManual();
 }
 
-// --- Check-in / Sign-out API ---
+// --- Check-in / Sign-out using GET ---
 function handleCheckIn(name, truck, time = new Date().toISOString()) {
-  fetch(SCRIPT_URL, {
-    method:"POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      site: site,
-      action: "checkin",
-      driver: name,
-      truck: truck,
-      time: time
-    })
-  }).then(()=>{ loadOnSite(); alert("Check-in recorded!"); });
+  const url = `${SCRIPT_URL}?site=${encodeURIComponent(site)}&action=checkin&driver=${encodeURIComponent(name)}&truck=${encodeURIComponent(truck)}&time=${encodeURIComponent(time)}`;
+  fetch(url)
+    .then(()=>{ loadOnSite(); alert("Check-in recorded!"); });
 }
 
 function askSignOut(p){
@@ -253,20 +245,14 @@ function askSignOut(p){
 }
 function closeConfirm(){ document.getElementById("confirmPopup").classList.add("hidden"); }
 function confirmSignOut(){
-  fetch(SCRIPT_URL, {
-    method:"POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      site: site,
-      action: "checkout",
-      driver: signOutTarget.name
-    })
-  }).then(()=>{ closeConfirm(); loadOnSite(); alert("Signed out!"); });
+  const url = `${SCRIPT_URL}?site=${encodeURIComponent(site)}&action=checkout&driver=${encodeURIComponent(signOutTarget.name)}`;
+  fetch(url)
+    .then(()=>{ closeConfirm(); loadOnSite(); alert("Signed out!"); });
 }
 
 // --- On Site List ---
 function loadOnSite(){
-  fetch(SCRIPT_URL + "?site=" + encodeURIComponent(site))
+  fetch(`${SCRIPT_URL}?site=${encodeURIComponent(site)}`)
     .then(r=>r.json())
     .then(d=>{ window.onSite=d; renderOnSite(); });
 }
