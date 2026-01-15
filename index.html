@@ -100,19 +100,27 @@
       z-index:1000;
       padding-top:50px;
     }
+
     #scannerPopup #scanner {
       width:300px;
       height:300px;
-      align-self:center;
+      background:black;
     }
-    #scannerPopup button { 
-      margin-top:15px; 
+
+    #scannerPopup #scanner + button {
+      margin-top:20px; /* move cancel button below camera */
       align-self:center;
+      z-index:1001;
     }
   </style>
 </head>
 
 <body>
+
+<!-- Version banner -->
+<div style="position:fixed;top:0;left:0;background:red;color:white;padding:5px;z-index:9999;font-weight:bold;">
+APP VERSION: v4
+</div>
 
 <div id="loginScreen" class="screen">
   <h2>Enter Passcode</h2>
@@ -184,10 +192,10 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCj
 function login() {
   const passInput = document.getElementById("passInput");
   const loginScreen = document.getElementById("loginScreen");
-  const sites = document.getElementById("sites");
+  const sitesDiv = document.getElementById("sites");
   if (passInput.value === PASS) {
     loginScreen.classList.add("hidden");
-    sites.classList.remove("hidden");
+    sitesDiv.classList.remove("hidden");
   } else {
     alert("Wrong passcode");
   }
@@ -226,8 +234,17 @@ function submitManual(){
 
 // --- Check-in / Sign-out API ---
 function handleCheckIn(name, truck, time = new Date().toISOString()) {
-  fetch(`${SCRIPT_URL}?site=${encodeURIComponent(site)}&action=in&name=${encodeURIComponent(name)}&truck=${encodeURIComponent(truck)}&time=${encodeURIComponent(time)}`)
-    .then(()=>{ loadOnSite(); alert("Check-in recorded!"); });
+  fetch(SCRIPT_URL, {
+    method:"POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      site: site,
+      action: "checkin",
+      driver: name,
+      truck: truck,
+      time: time
+    })
+  }).then(()=>{ loadOnSite(); alert("Check-in recorded!"); });
 }
 
 function askSignOut(p){
@@ -236,13 +253,20 @@ function askSignOut(p){
 }
 function closeConfirm(){ document.getElementById("confirmPopup").classList.add("hidden"); }
 function confirmSignOut(){
-  fetch(`${SCRIPT_URL}?site=${encodeURIComponent(site)}&action=out&id=${encodeURIComponent(signOutTarget.id)}`)
-    .then(()=>{ closeConfirm(); loadOnSite(); alert("Signed out!"); });
+  fetch(SCRIPT_URL, {
+    method:"POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      site: site,
+      action: "checkout",
+      driver: signOutTarget.name
+    })
+  }).then(()=>{ closeConfirm(); loadOnSite(); alert("Signed out!"); });
 }
 
 // --- On Site List ---
 function loadOnSite(){
-  fetch(`${SCRIPT_URL}?site=${encodeURIComponent(site)}&action=list`)
+  fetch(SCRIPT_URL + "?site=" + encodeURIComponent(site))
     .then(r=>r.json())
     .then(d=>{ window.onSite=d; renderOnSite(); });
 }
