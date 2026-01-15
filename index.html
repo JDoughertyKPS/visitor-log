@@ -90,7 +90,7 @@
 
 <body>
 
-<div id="login" class="screen">
+<div id="loginScreen" class="screen">
   <h2>Enter Passcode</h2>
   <input id="passInput" type="password">
   <button onclick="login()">Enter</button>
@@ -151,7 +151,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby52PhybpixBnv3wjCCj
 
 function login() {
   if (passInput.value === PASS) {
-    login.classList.add("hidden");
+    loginScreen.classList.add("hidden");
     sites.classList.remove("hidden");
   } else alert("Wrong passcode");
 }
