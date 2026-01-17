@@ -83,8 +83,10 @@
     max-width: 400px;
     text-align: center;
   }
-  .popup-content input {
+  video {
     width: 100%;
+    border-radius: 10px;
+    margin: 10px 0;
   }
 </style>
 </head>
@@ -110,9 +112,10 @@
   <div id="checkInTab">
     <h2>CHECK IN</h2>
     <div class="center">
-      <button onclick="scanQR()">📷 Scan QR</button>
+      <button onclick="startQRScan()">📷 Scan QR</button>
       <button onclick="openManualEntry()">Manual Entry</button>
     </div>
+    <video id="qrVideo" autoplay></video>
   </div>
 
   <div id="siteListTab" style="display:none;">
@@ -126,7 +129,7 @@
 </div>
 
 <!-- BOTTOM TABS -->
-<div class="tabs">
+<div class="tabs" id="bottomTabs" style="display:none;">
   <div class="tab" onclick="showTab('checkInTab')">CHECK IN</div>
   <div class="tab" onclick="showTab('siteListTab')">SITE LIST</div>
 </div>
@@ -148,16 +151,17 @@
   <div class="popup-content" id="confirmText"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7iGIobKahHlD3fvHJya06S4kFpo2hI9q0YdbRsuN8UVirnP5I6cZmr5Z1W5vvfQ79dQ/exec";
 
 const CONFIG = {
-  PASSCODE: "test",
   SITES: ["Site A", "Site B", "Site C"]
 };
 
 let currentSite = "";
 let onSiteData = [];
+let videoStream = null;
 
 // Initialize site buttons dynamically
 const siteButtonsContainer = document.getElementById("siteButtons");
@@ -183,7 +187,8 @@ function checkPasscode() {
     } else {
       alert("Incorrect passcode");
     }
-  });
+  })
+  .catch(()=>alert("Network error"));
 }
 
 // SITE SELECTION
@@ -191,6 +196,7 @@ function selectSite(site){
   currentSite = site;
   document.getElementById("siteSelectScreen").classList.remove("active");
   document.getElementById("mainScreen").classList.add("active");
+  document.getElementById("bottomTabs").style.display = "flex";
   loadOnSiteList();
 }
 
@@ -237,11 +243,6 @@ function submitManual(){
       alert("Error submitting entry");
     }
   });
-}
-
-// QR SCAN (Placeholder)
-function scanQR(){
-  alert("QR scanning not implemented in this demo.\nManual entry can be used for testing.");
 }
 
 // LOAD ON-SITE LIST
@@ -293,6 +294,63 @@ function signOut(rowNumber){
       loadOnSiteList();
     } else {
       alert("Error signing out");
+    }
+  });
+}
+
+/************ QR CODE SCANNING ************/
+function startQRScan(){
+  const video = document.getElementById("qrVideo");
+  video.style.display = "block";
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => {
+      videoStream = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true);
+      video.play();
+      requestAnimationFrame(tickQR);
+    })
+    .catch(err => alert("Camera access denied: " + err));
+}
+
+function tickQR(){
+  const video = document.getElementById("qrVideo");
+  if(video.readyState === video.HAVE_ENOUGH_DATA){
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if(code){
+      // Stop video stream
+      videoStream.getTracks().forEach(track => track.stop());
+      video.style.display = "none";
+      handleQRData(code.data);
+      return;
+    }
+  }
+  requestAnimationFrame(tickQR);
+}
+
+function handleQRData(data){
+  // Expect format: Driver|Truck
+  const [driver, truck] = data.split("|");
+  const timeIn = new Date().toISOString().slice(0,16);
+
+  fetch(SCRIPT_URL, {
+    method:"POST",
+    body: JSON.stringify({ action:"checkIn", site: currentSite, driver, truck, timeIn })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.success){
+      showConfirm("Check-in successful!");
+      loadOnSiteList();
+    } else {
+      alert("Error submitting entry");
     }
   });
 }
