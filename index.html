@@ -32,6 +32,7 @@ input {
   font-size: 16px;
   border-radius: 6px;
   border: none;
+  width: 80%;
 }
 
 .card {
@@ -53,6 +54,25 @@ input {
 .tabbar button {
   flex: 1;
   border-radius: 0;
+}
+
+/* MODALS */
+.modal {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 10;
+}
+.modal-content {
+  background: #0b1d33;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
 }
 </style>
 </head>
@@ -81,9 +101,8 @@ input {
 
   <!-- CHECK IN -->
   <div id="checkin">
-    <button onclick="startScan()">📷 Scan QR</button>
+    <button onclick="openScanner()">📷 Scan QR</button>
     <button onclick="openManual()">✍️ Manual Entry</button>
-    <video id="video" class="hidden" autoplay playsinline width="300"></video>
   </div>
 
   <!-- SITE LIST -->
@@ -100,25 +119,38 @@ input {
 </div>
 
 <!-- MANUAL MODAL -->
-<div id="manual" class="hidden">
-  <h3>Manual Check In</h3>
-  <input id="driver" placeholder="Driver">
-  <input id="truck" placeholder="Truck">
-  <br>
-  <button onclick="manualCheckin()">Submit</button>
-  <button onclick="closeManual()">Cancel</button>
+<div id="manual" class="modal hidden">
+  <div class="modal-content">
+    <h3>Manual Check In</h3>
+    <input id="manualTime" type="datetime-local">
+    <input id="driver" placeholder="Driver">
+    <input id="truck" placeholder="Truck">
+    <br>
+    <button onclick="manualCheckin()">Submit</button>
+    <button onclick="closeManual()">Cancel</button>
+  </div>
+</div>
+
+<!-- CAMERA SCANNER MODAL -->
+<div id="scanner" class="modal hidden">
+  <div class="modal-content">
+    <video id="video" autoplay playsinline width="300"></video>
+    <br>
+    <button onclick="closeScanner()">Cancel</button>
+  </div>
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec"; // Update with your latest script URL
+const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
 const PASSCODE = "test";
 
 let SITE = "";
 let LIST = [];
+let videoStream;
 
 // LOGIN
 function login() {
-  const passInput = document.getElementById("code"); // reliable reference
+  const passInput = document.getElementById("code");
   const c = passInput.value;
 
   if (c !== PASSCODE) return alert("Invalid passcode");
@@ -138,24 +170,40 @@ function selectSite(s) {
 
 // TABS
 function showTab(t) {
+  closeManual();  // ensure manual modal closes if switching tabs
+  closeScanner(); // ensure scanner closes if switching tabs
   document.getElementById("checkin").classList.toggle("hidden", t !== "checkin");
   document.getElementById("list").classList.toggle("hidden", t !== "list");
   if (t === "list") loadList();
 }
 
 // MANUAL ENTRY
-function openManual() { document.getElementById("manual").classList.remove("hidden"); }
+function openManual() { 
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  const localISO = (new Date(now - tzOffset)).toISOString().slice(0,16);
+  document.getElementById("manualTime").value = localISO;
+
+  document.getElementById("manual").classList.remove("hidden"); 
+}
 function closeManual() { document.getElementById("manual").classList.add("hidden"); }
 function manualCheckin() {
-  send("checkin", driver.value, truck.value);
-  driver.value = truck.value = "";
+  const time = document.getElementById("manualTime").value;
+  const driverVal = document.getElementById("driver").value;
+  const truckVal = document.getElementById("truck").value;
+
+  send("checkin", driverVal, truckVal, time);
+  document.getElementById("driver").value = "";
+  document.getElementById("truck").value = "";
   closeManual();
   alert("Checked In");
 }
 
 // SEND TO SCRIPT
-function send(action, driver="", truck="") {
-  fetch(`${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`);
+function send(action, driver="", truck="", time="") {
+  let url = `${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`;
+  if (time) url += `&time=${encodeURIComponent(time)}`;
+  fetch(url);
 }
 
 // LOAD SITE LIST
@@ -177,7 +225,8 @@ function renderList(query="") {
   ).forEach(r => {
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<b>${r[2]}</b><br>${r[3]}<br>
+    const timeIn = r[0] ? new Date(r[0]).toLocaleString() : "Unknown";
+    card.innerHTML = `<b>${r[2]}</b> (${timeIn})<br>${r[3]}<br>
       <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>`;
     cardsDiv.appendChild(card);
   });
@@ -190,13 +239,45 @@ function checkout(driver) {
   loadList();
 }
 
-// BASIC QR SCANNER (text-based)
-function startScan() {
-  const v = video;
-  v.classList.remove("hidden");
+// CAMERA SCANNER MODAL
+function openScanner() {
+  document.getElementById("scanner").classList.remove("hidden");
+  const video = document.getElementById("video");
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => v.srcObject = stream);
-  alert("Point camera at QR with text: DRIVER|TRUCK (Example: John Doe|Truck 123)");
+    .then(stream => { 
+      video.srcObject = stream; 
+      videoStream = stream;
+      scanLoop();
+    });
+}
+
+function closeScanner() {
+  document.getElementById("scanner").classList.add("hidden");
+  const video = document.getElementById("video");
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+}
+
+// BASIC QR SCANNER LOOP
+function scanLoop() {
+  const video = document.getElementById("video");
+  if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // Using jsQR library would be best; for now we simulate plain text QR detection
+  // If you have plain text: DRIVER|TRUCK in QR, simulate detection here:
+  // Example simulation: we could parse from an actual QR library later
+  // For now, just leave scanning to be handled by real jsQR integration
+
+  requestAnimationFrame(scanLoop);
 }
 </script>
 
