@@ -12,7 +12,7 @@ body {
   color: white;
   text-align: center;
 }
-.hidden { display: none; }
+.hidden { display: none !important; }
 
 button {
   background: #1e90ff;
@@ -146,6 +146,9 @@ input {
   </div>
 </div>
 
+<!-- jsQR Library -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
@@ -189,7 +192,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const tzOffset = now.getTimezoneOffset() * 60000;
     const localISO = (new Date(now - tzOffset)).toISOString().slice(0,16);
     document.getElementById("manualTime").value = localISO;
-
     document.getElementById("manual").classList.remove("hidden"); 
   }
   window.closeManual = function() { document.getElementById("manual").classList.add("hidden"); }
@@ -255,7 +257,7 @@ document.addEventListener("DOMContentLoaded", function() {
         video.srcObject = stream; 
         videoStream = stream;
         scanLoop();
-      });
+      }).catch(err => alert("Camera not accessible: " + err));
   }
 
   window.closeScanner = function() {
@@ -267,16 +269,33 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // ---------------- QR SCAN LOOP (placeholder) ----------------
+  // ---------------- QR SCAN LOOP ----------------
   function scanLoop() {
     const video = document.getElementById("video");
     if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
 
-    // TODO: integrate jsQR or other QR library here
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if (code) {
+      // QR text expected format: "Driver|Truck"
+      const [driverVal, truckVal] = code.data.split("|");
+      if (driverVal && truckVal) {
+        send("checkin", driverVal.trim(), truckVal.trim());
+        alert("Checked In: " + driverVal + " / " + truckVal);
+        closeScanner();
+        loadList();
+        return;
+      }
+    }
     requestAnimationFrame(scanLoop);
   }
+
 });
 </script>
-
 </body>
 </html>
