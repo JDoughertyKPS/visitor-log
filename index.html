@@ -1,116 +1,199 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visitor Log</title>
+
 <style>
-body { font-family: sans-serif; padding: 20px; }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #0b1d33;
+  color: white;
+  text-align: center;
+}
 .hidden { display: none; }
-button { padding: 15px; margin: 10px; font-size: 18px; }
+
+button {
+  background: #1e90ff;
+  border: none;
+  color: white;
+  padding: 14px 20px;
+  margin: 8px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+button.red { background: #c0392b; }
+
+input {
+  padding: 12px;
+  margin: 6px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: none;
+}
+
+.card {
+  background: #132f52;
+  margin: 10px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #081629;
+  display: flex;
+}
+
+.tabbar button {
+  flex: 1;
+  border-radius: 0;
+}
 </style>
 </head>
+
 <body>
 
+<!-- LOGIN -->
 <div id="login">
   <h2>Enter Passcode</h2>
-  <input type="password" id="code">
+  <input type="password" id="pass">
+  <br>
   <button onclick="login()">Enter</button>
 </div>
 
-<div id="site" class="hidden">
+<!-- SITE SELECT -->
+<div id="siteSelect" class="hidden">
   <h2>Select Site</h2>
   <button onclick="selectSite('Site A')">Site A</button>
   <button onclick="selectSite('Site B')">Site B</button>
   <button onclick="selectSite('Site C')">Site C</button>
 </div>
 
+<!-- APP -->
 <div id="app" class="hidden">
   <h2 id="siteTitle"></h2>
-  <button onclick="showTab('scan')">Scan</button>
-  <button onclick="showTab('onsite')">On Site</button>
 
-  <div id="scan">
-    <button onclick="manual()">Manual Entry</button>
-    <div id="form" class="hidden">
-      <input placeholder="Driver" id="driver"><br>
-      <input placeholder="Truck" id="truck"><br>
-      <button onclick="checkin()">Check In</button>
-    </div>
+  <!-- CHECK IN -->
+  <div id="checkin">
+    <button onclick="startScan()">📷 Scan QR</button>
+    <button onclick="openManual()">✍️ Manual Entry</button>
+    <video id="video" class="hidden" autoplay playsinline width="300"></video>
   </div>
 
-  <div id="onsite" class="hidden"></div>
+  <!-- SITE LIST -->
+  <div id="list" class="hidden">
+    <input placeholder="Search" oninput="renderList(this.value)">
+    <button onclick="loadList()">🔄 Refresh</button>
+    <div id="cards"></div>
+  </div>
+</div>
+
+<div class="tabbar hidden" id="tabs">
+  <button onclick="showTab('checkin')">CHECK IN</button>
+  <button onclick="showTab('list')">SITE LIST</button>
+</div>
+
+<!-- MANUAL MODAL -->
+<div id="manual" class="hidden">
+  <h3>Manual Check In</h3>
+  <input id="driver" placeholder="Driver">
+  <input id="truck" placeholder="Truck">
+  <br>
+  <button onclick="manualCheckin()">Submit</button>
+  <button onclick="closeManual()">Cancel</button>
 </div>
 
 <script>
-const GUARD = "KpsGuard15857!";
-const ADMIN = "Kps17701";
-const API = "https://script.google.com/macros/s/AKfycby1J_Xi5WzcTQP7Ss8w98bXR5G3UX0g7Fe2XLu6XeasMbczDPcfIi1VC8a0lCofLH3F/exec";
+const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
+const PASSCODE = "test";
 
-let role = "", site = "";
+let SITE = "";
+let LIST = [];
 
 function login() {
-  const c = code.value;
-  if (c === GUARD) role = "guard";
-  if (c === ADMIN) role = "admin";
-  if (!role) return alert("Invalid code");
-  loginDiv = document.getElementById("login");
-  loginDiv.classList.add("hidden");
-  document.getElementById("site").classList.remove("hidden");
+  if (pass.value !== PASSCODE) return alert("Invalid passcode");
+  login.classList.add("hidden");
+  siteSelect.classList.remove("hidden");
 }
 
 function selectSite(s) {
-  site = s;
-  document.getElementById("site").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-  document.getElementById("siteTitle").innerText = s;
+  SITE = s;
+  siteSelect.classList.add("hidden");
+  app.classList.remove("hidden");
+  tabs.classList.remove("hidden");
+  siteTitle.innerText = s;
 }
 
 function showTab(t) {
-  document.getElementById("scan").classList.toggle("hidden", t !== "scan");
-  document.getElementById("onsite").classList.toggle("hidden", t !== "onsite");
-  if (t === "onsite") loadOnSite();
+  checkin.classList.toggle("hidden", t !== "checkin");
+  list.classList.toggle("hidden", t !== "list");
+  if (t === "list") loadList();
 }
 
-function manual() {
-  document.getElementById("form").classList.remove("hidden");
+function openManual() {
+  manual.classList.remove("hidden");
 }
 
-function checkin() {
-  fetch(API, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "checkin",
-      site,
-      driver: driver.value,
-      truck: truck.value
-    })
-  });
+function closeManual() {
+  manual.classList.add("hidden");
+}
+
+function manualCheckin() {
+  send("checkin", driver.value, truck.value);
   driver.value = truck.value = "";
+  closeManual();
   alert("Checked In");
 }
 
-function loadOnSite() {
-  fetch(API + "?site=" + site)
+function send(action, driver="", truck="") {
+  fetch(`${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`);
+}
+
+function loadList() {
+  fetch(`${API}?action=list&site=${encodeURIComponent(SITE)}`)
     .then(r => r.json())
     .then(rows => {
-      const div = document.getElementById("onsite");
-      div.innerHTML = "";
-      rows.slice(1).filter(r => r[4] === "On Site").forEach(r => {
-        const b = document.createElement("button");
-        b.textContent = r[2] + " (" + r[3] + ")";
-        b.onclick = () => checkout(r[2]);
-        div.appendChild(b);
-      });
+      LIST = rows.slice(1).filter(r => r[4] === "On Site");
+      renderList();
     });
 }
 
-function checkout(driver) {
-  fetch(API, {
-    method: "POST",
-    body: JSON.stringify({ action: "checkout", site, driver })
+function renderList(q="") {
+  cards.innerHTML = "";
+  LIST.filter(r =>
+    r[2].toLowerCase().includes(q.toLowerCase()) ||
+    r[3].toLowerCase().includes(q.toLowerCase())
+  ).forEach(r => {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.innerHTML = `
+      <b>${r[2]}</b><br>${r[3]}<br>
+      <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>
+    `;
+    cards.appendChild(d);
   });
-  loadOnSite();
+}
+
+function checkout(driver) {
+  send("checkout", driver);
+  alert("Signed Out");
+  loadList();
+}
+
+/* BASIC QR SCAN (text-based) */
+function startScan() {
+  const v = video;
+  v.classList.remove("hidden");
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => v.srcObject = stream);
+  alert("Point camera at QR with text: DRIVER|TRUCK");
 }
 </script>
+
 </body>
 </html>
