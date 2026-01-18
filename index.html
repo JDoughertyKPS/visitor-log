@@ -66,7 +66,7 @@ input {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  z-index: 10;
+  z-index: 500;
 }
 .modal-content {
   background: #0b1d33;
@@ -74,13 +74,19 @@ input {
   border-radius: 10px;
   text-align: center;
 }
+
+/* LOGIN HIGHEST Z-INDEX */
+#login {
+  z-index: 1000;
+  position: relative;
+}
 </style>
 </head>
 
 <body>
 
 <!-- LOGIN -->
-<div id="login" style="z-index:20;">
+<div id="login">
   <h2>Enter Passcode</h2>
   <input type="password" id="code">
   <br>
@@ -141,133 +147,135 @@ input {
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
-const PASSCODE = "test";
+document.addEventListener("DOMContentLoaded", function() {
+  const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
+  const PASSCODE = "test";
 
-let SITE = "";
-let LIST = [];
-let videoStream;
+  let SITE = "";
+  let LIST = [];
+  let videoStream;
 
-// ---------------- LOGIN ----------------
-function login() {
+  // ---------------- LOGIN ----------------
+  const loginDiv = document.getElementById("login");
   const passInput = document.getElementById("code");
-  const c = passInput.value;
 
-  if (c !== PASSCODE) return alert("Invalid passcode");
-
-  document.getElementById("login").classList.add("hidden");
-  document.getElementById("siteSelect").classList.remove("hidden");
-}
-
-// ---------------- SITE SELECT ----------------
-function selectSite(s) {
-  SITE = s;
-  document.getElementById("siteSelect").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-  document.getElementById("tabs").classList.remove("hidden");
-  document.getElementById("siteTitle").innerText = s;
-}
-
-// ---------------- TABS ----------------
-function showTab(t) {
-  closeManual();
-  closeScanner();
-  document.getElementById("checkin").classList.toggle("hidden", t !== "checkin");
-  document.getElementById("list").classList.toggle("hidden", t !== "list");
-  if (t === "list") loadList();
-}
-
-// ---------------- MANUAL ENTRY ----------------
-function openManual() { 
-  const now = new Date();
-  const tzOffset = now.getTimezoneOffset() * 60000;
-  const localISO = (new Date(now - tzOffset)).toISOString().slice(0,16);
-  document.getElementById("manualTime").value = localISO;
-
-  document.getElementById("manual").classList.remove("hidden"); 
-}
-function closeManual() { document.getElementById("manual").classList.add("hidden"); }
-function manualCheckin() {
-  const time = document.getElementById("manualTime").value;
-  const driverVal = document.getElementById("driver").value;
-  const truckVal = document.getElementById("truck").value;
-
-  send("checkin", driverVal, truckVal, time);
-  document.getElementById("driver").value = "";
-  document.getElementById("truck").value = "";
-  closeManual();
-  alert("Checked In");
-}
-
-// ---------------- SEND TO SCRIPT ----------------
-function send(action, driver="", truck="", time="") {
-  let url = `${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`;
-  if (time) url += `&time=${encodeURIComponent(time)}`;
-  fetch(url);
-}
-
-// ---------------- SITE LIST ----------------
-function loadList() {
-  fetch(`${API}?action=list&site=${encodeURIComponent(SITE)}`)
-    .then(r => r.json())
-    .then(rows => {
-      LIST = rows.slice(1).filter(r => r[4] === "On Site");
-      renderList();
-    });
-}
-
-function renderList(query="") {
-  const cardsDiv = document.getElementById("cards");
-  cardsDiv.innerHTML = "";
-  LIST.filter(r =>
-    r[2].toLowerCase().includes(query.toLowerCase()) ||
-    r[3].toLowerCase().includes(query.toLowerCase())
-  ).forEach(r => {
-    const card = document.createElement("div");
-    card.className = "card";
-    const timeIn = r[0] ? new Date(r[0]).toLocaleString() : "Unknown";
-    card.innerHTML = `<b>${r[2]}</b> (${timeIn})<br>${r[3]}<br>
-      <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>`;
-    cardsDiv.appendChild(card);
-  });
-}
-
-// ---------------- CHECKOUT ----------------
-function checkout(driver) {
-  send("checkout", driver);
-  alert("Signed Out");
-  loadList();
-}
-
-// ---------------- CAMERA SCANNER ----------------
-function openScanner() {
-  document.getElementById("scanner").classList.remove("hidden");
-  const video = document.getElementById("video");
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => { 
-      video.srcObject = stream; 
-      videoStream = stream;
-      scanLoop();
-    });
-}
-
-function closeScanner() {
-  document.getElementById("scanner").classList.add("hidden");
-  const video = document.getElementById("video");
-  if (videoStream) {
-    videoStream.getTracks().forEach(track => track.stop());
-    videoStream = null;
+  window.login = function() {
+    if (passInput.value !== PASSCODE) return alert("Invalid passcode");
+    loginDiv.classList.add("hidden");
+    document.getElementById("siteSelect").classList.remove("hidden");
   }
-}
 
-// ---------------- QR SCAN LOOP (placeholder) ----------------
-function scanLoop() {
-  const video = document.getElementById("video");
-  if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
+  // ---------------- SITE SELECT ----------------
+  window.selectSite = function(s) {
+    SITE = s;
+    document.getElementById("siteSelect").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("tabs").classList.remove("hidden");
+    document.getElementById("siteTitle").innerText = s;
+  }
 
-  // TODO: integrate jsQR or other QR library here
-  requestAnimationFrame(scanLoop);
-}
+  // ---------------- TABS ----------------
+  window.showTab = function(t) {
+    closeManual();
+    closeScanner();
+    document.getElementById("checkin").classList.toggle("hidden", t !== "checkin");
+    document.getElementById("list").classList.toggle("hidden", t !== "list");
+    if (t === "list") loadList();
+  }
+
+  // ---------------- MANUAL ENTRY ----------------
+  window.openManual = function() { 
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localISO = (new Date(now - tzOffset)).toISOString().slice(0,16);
+    document.getElementById("manualTime").value = localISO;
+
+    document.getElementById("manual").classList.remove("hidden"); 
+  }
+  window.closeManual = function() { document.getElementById("manual").classList.add("hidden"); }
+
+  window.manualCheckin = function() {
+    const time = document.getElementById("manualTime").value;
+    const driverVal = document.getElementById("driver").value;
+    const truckVal = document.getElementById("truck").value;
+
+    send("checkin", driverVal, truckVal, time);
+    document.getElementById("driver").value = "";
+    document.getElementById("truck").value = "";
+    closeManual();
+    alert("Checked In");
+  }
+
+  // ---------------- SEND TO SCRIPT ----------------
+  function send(action, driver="", truck="", time="") {
+    let url = `${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`;
+    if (time) url += `&time=${encodeURIComponent(time)}`;
+    fetch(url);
+  }
+
+  // ---------------- SITE LIST ----------------
+  window.loadList = function() {
+    fetch(`${API}?action=list&site=${encodeURIComponent(SITE)}`)
+      .then(r => r.json())
+      .then(rows => {
+        LIST = rows.slice(1).filter(r => r[4] === "On Site");
+        renderList();
+      });
+  }
+
+  window.renderList = function(query="") {
+    const cardsDiv = document.getElementById("cards");
+    cardsDiv.innerHTML = "";
+    LIST.filter(r =>
+      r[2].toLowerCase().includes(query.toLowerCase()) ||
+      r[3].toLowerCase().includes(query.toLowerCase())
+    ).forEach(r => {
+      const card = document.createElement("div");
+      card.className = "card";
+      const timeIn = r[0] ? new Date(r[0]).toLocaleString() : "Unknown";
+      card.innerHTML = `<b>${r[2]}</b> (${timeIn})<br>${r[3]}<br>
+        <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>`;
+      cardsDiv.appendChild(card);
+    });
+  }
+
+  // ---------------- CHECKOUT ----------------
+  window.checkout = function(driver) {
+    send("checkout", driver);
+    alert("Signed Out");
+    loadList();
+  }
+
+  // ---------------- CAMERA SCANNER ----------------
+  window.openScanner = function() {
+    document.getElementById("scanner").classList.remove("hidden");
+    const video = document.getElementById("video");
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { 
+        video.srcObject = stream; 
+        videoStream = stream;
+        scanLoop();
+      });
+  }
+
+  window.closeScanner = function() {
+    document.getElementById("scanner").classList.add("hidden");
+    const video = document.getElementById("video");
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      videoStream = null;
+    }
+  }
+
+  // ---------------- QR SCAN LOOP (placeholder) ----------------
+  function scanLoop() {
+    const video = document.getElementById("video");
+    if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
+
+    // TODO: integrate jsQR or other QR library here
+    requestAnimationFrame(scanLoop);
+  }
+});
 </script>
 
 </body>
