@@ -39,6 +39,7 @@ input {
   margin: 10px;
   padding: 12px;
   border-radius: 10px;
+  text-align: left;
 }
 
 .tabbar {
@@ -61,7 +62,7 @@ input {
 <!-- LOGIN -->
 <div id="login">
   <h2>Enter Passcode</h2>
-  <input type="password" id="pass">
+  <input type="password" id="code">
   <br>
   <button onclick="login()">Enter</button>
 </div>
@@ -109,40 +110,42 @@ input {
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec";
+const API = "https://script.google.com/macros/s/AKfycbwI-tNcSCKx4mMTghZ-TboGx0g0ePHO5FnVIXLRwfPqXP1DH1DVmQkgfRRyEthbJMlHhg/exec"; // Update with your latest script URL
 const PASSCODE = "test";
 
 let SITE = "";
 let LIST = [];
 
+// LOGIN
 function login() {
-  if (pass.value !== PASSCODE) return alert("Invalid passcode");
-  login.classList.add("hidden");
-  siteSelect.classList.remove("hidden");
+  const passInput = document.getElementById("code"); // reliable reference
+  const c = passInput.value;
+
+  if (c !== PASSCODE) return alert("Invalid passcode");
+
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("siteSelect").classList.remove("hidden");
 }
 
+// SITE SELECT
 function selectSite(s) {
   SITE = s;
-  siteSelect.classList.add("hidden");
-  app.classList.remove("hidden");
-  tabs.classList.remove("hidden");
-  siteTitle.innerText = s;
+  document.getElementById("siteSelect").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("tabs").classList.remove("hidden");
+  document.getElementById("siteTitle").innerText = s;
 }
 
+// TABS
 function showTab(t) {
-  checkin.classList.toggle("hidden", t !== "checkin");
-  list.classList.toggle("hidden", t !== "list");
+  document.getElementById("checkin").classList.toggle("hidden", t !== "checkin");
+  document.getElementById("list").classList.toggle("hidden", t !== "list");
   if (t === "list") loadList();
 }
 
-function openManual() {
-  manual.classList.remove("hidden");
-}
-
-function closeManual() {
-  manual.classList.add("hidden");
-}
-
+// MANUAL ENTRY
+function openManual() { document.getElementById("manual").classList.remove("hidden"); }
+function closeManual() { document.getElementById("manual").classList.add("hidden"); }
 function manualCheckin() {
   send("checkin", driver.value, truck.value);
   driver.value = truck.value = "";
@@ -150,10 +153,12 @@ function manualCheckin() {
   alert("Checked In");
 }
 
+// SEND TO SCRIPT
 function send(action, driver="", truck="") {
   fetch(`${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`);
 }
 
+// LOAD SITE LIST
 function loadList() {
   fetch(`${API}?action=list&site=${encodeURIComponent(SITE)}`)
     .then(r => r.json())
@@ -163,35 +168,35 @@ function loadList() {
     });
 }
 
-function renderList(q="") {
-  cards.innerHTML = "";
+function renderList(query="") {
+  const cardsDiv = document.getElementById("cards");
+  cardsDiv.innerHTML = "";
   LIST.filter(r =>
-    r[2].toLowerCase().includes(q.toLowerCase()) ||
-    r[3].toLowerCase().includes(q.toLowerCase())
+    r[2].toLowerCase().includes(query.toLowerCase()) ||
+    r[3].toLowerCase().includes(query.toLowerCase())
   ).forEach(r => {
-    const d = document.createElement("div");
-    d.className = "card";
-    d.innerHTML = `
-      <b>${r[2]}</b><br>${r[3]}<br>
-      <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>
-    `;
-    cards.appendChild(d);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<b>${r[2]}</b><br>${r[3]}<br>
+      <button class="red" onclick="checkout('${r[2]}')">SIGN OUT</button>`;
+    cardsDiv.appendChild(card);
   });
 }
 
+// CHECKOUT
 function checkout(driver) {
   send("checkout", driver);
   alert("Signed Out");
   loadList();
 }
 
-/* BASIC QR SCAN (text-based) */
+// BASIC QR SCANNER (text-based)
 function startScan() {
   const v = video;
   v.classList.remove("hidden");
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
     .then(stream => v.srcObject = stream);
-  alert("Point camera at QR with text: DRIVER|TRUCK");
+  alert("Point camera at QR with text: DRIVER|TRUCK (Example: John Doe|Truck 123)");
 }
 </script>
 
