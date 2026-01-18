@@ -1,358 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width">
 <title>Visitor Log</title>
 <style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #002f5f;
-    color: white;
-  }
-  .center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .screen {
-    display: none;
-    flex-direction: column;
-    height: 100vh;
-    padding: 20px;
-  }
-  .active {
-    display: flex;
-  }
-  input, select, button {
-    padding: 10px;
-    margin: 5px;
-    font-size: 16px;
-    border-radius: 5px;
-    border: none;
-  }
-  input, select {
-    width: 80%;
-  }
-  button {
-    background-color: #0059b3;
-    color: white;
-    cursor: pointer;
-  }
-  button.red {
-    background-color: #d32f2f;
-  }
-  .tabs {
-    display: flex;
-    justify-content: space-around;
-    background-color: #004080;
-    padding: 10px 0;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-  }
-  .tab {
-    flex: 1;
-    text-align: center;
-    cursor: pointer;
-  }
-  .card {
-    background-color: #004080;
-    padding: 10px;
-    margin: 5px 0;
-    border-radius: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .popup {
-    position: fixed;
-    top: 0; left:0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    justify-content: center;
-    align-items: center;
-  }
-  .popup-content {
-    background: #002f5f;
-    padding: 20px;
-    border-radius: 10px;
-    width: 90%;
-    max-width: 400px;
-    text-align: center;
-  }
-  video {
-    width: 100%;
-    border-radius: 10px;
-    margin: 10px 0;
-  }
+body { font-family: sans-serif; padding: 20px; }
+.hidden { display: none; }
+button { padding: 15px; margin: 10px; font-size: 18px; }
 </style>
 </head>
 <body>
 
-<!-- PASSCODE SCREEN -->
-<div id="passcodeScreen" class="screen active center">
-  <div style="text-align:center;">
-    <h2>Enter Passcode</h2>
-    <input type="password" id="passcodeInput" placeholder="Passcode">
-    <button onclick="checkPasscode()">Enter</button>
-  </div>
+<div id="login">
+  <h2>Enter Passcode</h2>
+  <input type="password" id="code">
+  <button onclick="login()">Enter</button>
 </div>
 
-<!-- SITE SELECTION SCREEN -->
-<div id="siteSelectScreen" class="screen center">
+<div id="site" class="hidden">
   <h2>Select Site</h2>
-  <div id="siteButtons" class="center"></div>
+  <button onclick="selectSite('Site A')">Site A</button>
+  <button onclick="selectSite('Site B')">Site B</button>
+  <button onclick="selectSite('Site C')">Site C</button>
 </div>
 
-<!-- MAIN APP SCREEN -->
-<div id="mainScreen" class="screen">
-  <div id="checkInTab">
-    <h2>CHECK IN</h2>
-    <div class="center">
-      <button onclick="startQRScan()">📷 Scan QR</button>
-      <button onclick="openManualEntry()">Manual Entry</button>
+<div id="app" class="hidden">
+  <h2 id="siteTitle"></h2>
+  <button onclick="showTab('scan')">Scan</button>
+  <button onclick="showTab('onsite')">On Site</button>
+
+  <div id="scan">
+    <button onclick="manual()">Manual Entry</button>
+    <div id="form" class="hidden">
+      <input placeholder="Driver" id="driver"><br>
+      <input placeholder="Truck" id="truck"><br>
+      <button onclick="checkin()">Check In</button>
     </div>
-    <video id="qrVideo" autoplay></video>
   </div>
 
-  <div id="siteListTab" style="display:none;">
-    <h2>SITE LIST</h2>
-    <div class="center">
-      <input type="text" id="searchInput" placeholder="Search by Driver or Truck" oninput="renderSiteList()">
-      <button onclick="loadOnSiteList()">Refresh</button>
-    </div>
-    <div id="siteListContainer"></div>
-  </div>
+  <div id="onsite" class="hidden"></div>
 </div>
 
-<!-- BOTTOM TABS -->
-<div class="tabs" id="bottomTabs" style="display:none;">
-  <div class="tab" onclick="showTab('checkInTab')">CHECK IN</div>
-  <div class="tab" onclick="showTab('siteListTab')">SITE LIST</div>
-</div>
-
-<!-- POPUP FOR MANUAL ENTRY -->
-<div id="manualPopup" class="popup">
-  <div class="popup-content">
-    <h3>Manual Check-In</h3>
-    <input type="text" id="manualDriver" placeholder="Driver Name"><br>
-    <input type="text" id="manualTruck" placeholder="Truck Info"><br>
-    <input type="datetime-local" id="manualTime"><br>
-    <button onclick="submitManual()">Submit</button>
-    <button onclick="closePopup()">Cancel</button>
-  </div>
-</div>
-
-<!-- CONFIRMATION POPUP -->
-<div id="confirmPopup" class="popup">
-  <div class="popup-content" id="confirmText"></div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7iGIobKahHlD3fvHJya06S4kFpo2hI9q0YdbRsuN8UVirnP5I6cZmr5Z1W5vvfQ79dQ/exec";
+const GUARD = "KpsGuard15857!";
+const ADMIN = "Kps17701";
+const API = "https://script.google.com/macros/s/AKfycby1J_Xi5WzcTQP7Ss8w98bXR5G3UX0g7Fe2XLu6XeasMbczDPcfIi1VC8a0lCofLH3F/exec";
 
-const CONFIG = {
-  SITES: ["Site A", "Site B", "Site C"]
-};
+let role = "", site = "";
 
-let currentSite = "";
-let onSiteData = [];
-let videoStream = null;
+function login() {
+  const c = code.value;
+  if (c === GUARD) role = "guard";
+  if (c === ADMIN) role = "admin";
+  if (!role) return alert("Invalid code");
+  loginDiv = document.getElementById("login");
+  loginDiv.classList.add("hidden");
+  document.getElementById("site").classList.remove("hidden");
+}
 
-// Initialize site buttons dynamically
-const siteButtonsContainer = document.getElementById("siteButtons");
-CONFIG.SITES.forEach(site => {
-  const btn = document.createElement("button");
-  btn.textContent = site;
-  btn.onclick = () => selectSite(site);
-  siteButtonsContainer.appendChild(btn);
-});
+function selectSite(s) {
+  site = s;
+  document.getElementById("site").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("siteTitle").innerText = s;
+}
 
-// PASSCODE FUNCTION
-function checkPasscode() {
-  const pass = document.getElementById("passcodeInput").value;
-  fetch(SCRIPT_URL, {
+function showTab(t) {
+  document.getElementById("scan").classList.toggle("hidden", t !== "scan");
+  document.getElementById("onsite").classList.toggle("hidden", t !== "onsite");
+  if (t === "onsite") loadOnSite();
+}
+
+function manual() {
+  document.getElementById("form").classList.remove("hidden");
+}
+
+function checkin() {
+  fetch(API, {
     method: "POST",
-    body: JSON.stringify({ action:"checkPasscode", passcode: pass })
-  })
-  .then(r => r.json())
-  .then(res => {
-    if(res.success){
-      document.getElementById("passcodeScreen").classList.remove("active");
-      document.getElementById("siteSelectScreen").classList.add("active");
-    } else {
-      alert("Incorrect passcode");
-    }
-  })
-  .catch(()=>alert("Network error"));
-}
-
-// SITE SELECTION
-function selectSite(site){
-  currentSite = site;
-  document.getElementById("siteSelectScreen").classList.remove("active");
-  document.getElementById("mainScreen").classList.add("active");
-  document.getElementById("bottomTabs").style.display = "flex";
-  loadOnSiteList();
-}
-
-// TAB SWITCHING
-function showTab(tabId){
-  document.getElementById("checkInTab").style.display = tabId==="checkInTab"?"block":"none";
-  document.getElementById("siteListTab").style.display = tabId==="siteListTab"?"block":"none";
-  if(tabId==="siteListTab") loadOnSiteList();
-}
-
-// OPEN/CLOSE POPUPS
-function openManualEntry(){
-  document.getElementById("manualPopup").style.display="flex";
-  const now = new Date();
-  document.getElementById("manualTime").value = now.toISOString().slice(0,16);
-}
-function closePopup(){
-  document.getElementById("manualPopup").style.display="none";
-}
-function showConfirm(msg){
-  document.getElementById("confirmText").textContent = msg;
-  const popup = document.getElementById("confirmPopup");
-  popup.style.display="flex";
-  setTimeout(()=>popup.style.display="none",1500);
-}
-
-// MANUAL ENTRY SUBMIT
-function submitManual(){
-  const driver = document.getElementById("manualDriver").value;
-  const truck = document.getElementById("manualTruck").value;
-  const timeIn = document.getElementById("manualTime").value;
-
-  fetch(SCRIPT_URL, {
-    method:"POST",
-    body: JSON.stringify({ action:"checkIn", site: currentSite, driver, truck, timeIn })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.success){
-      closePopup();
-      showConfirm("Check-in successful!");
-      loadOnSiteList();
-    } else {
-      alert("Error submitting entry");
-    }
+    body: JSON.stringify({
+      action: "checkin",
+      site,
+      driver: driver.value,
+      truck: truck.value
+    })
   });
+  driver.value = truck.value = "";
+  alert("Checked In");
 }
 
-// LOAD ON-SITE LIST
-function loadOnSiteList(){
-  fetch(SCRIPT_URL, {
-    method:"POST",
-    body: JSON.stringify({ action:"getOnSiteList", site: currentSite })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.success){
-      onSiteData = res.data;
-      renderSiteList();
-    }
-  });
-}
-
-// RENDER SITE LIST
-function renderSiteList(){
-  const container = document.getElementById("siteListContainer");
-  const filter = document.getElementById("searchInput").value.toLowerCase();
-  container.innerHTML = "";
-  onSiteData
-    .filter(p => p.driver.toLowerCase().includes(filter) || p.truck.toLowerCase().includes(filter))
-    .forEach(p=>{
-      const card = document.createElement("div");
-      card.className="card";
-      card.innerHTML = `<div>${p.driver} (${p.truck})<br>Time In: ${p.timeIn}</div>`;
-      const btn = document.createElement("button");
-      btn.textContent="SIGN OUT";
-      btn.className="red";
-      btn.onclick = ()=>signOut(p.rowNumber);
-      card.appendChild(btn);
-      container.appendChild(card);
+function loadOnSite() {
+  fetch(API + "?site=" + site)
+    .then(r => r.json())
+    .then(rows => {
+      const div = document.getElementById("onsite");
+      div.innerHTML = "";
+      rows.slice(1).filter(r => r[4] === "On Site").forEach(r => {
+        const b = document.createElement("button");
+        b.textContent = r[2] + " (" + r[3] + ")";
+        b.onclick = () => checkout(r[2]);
+        div.appendChild(b);
+      });
     });
 }
 
-// SIGN OUT FUNCTION
-function signOut(rowNumber){
-  const now = new Date().toISOString().slice(0,16);
-  fetch(SCRIPT_URL,{
-    method:"POST",
-    body: JSON.stringify({ action:"signOut", site: currentSite, rowNumber, timeOut: now })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.success){
-      showConfirm("Signed out!");
-      loadOnSiteList();
-    } else {
-      alert("Error signing out");
-    }
+function checkout(driver) {
+  fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ action: "checkout", site, driver })
   });
-}
-
-/************ QR CODE SCANNING ************/
-function startQRScan(){
-  const video = document.getElementById("qrVideo");
-  video.style.display = "block";
-
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => {
-      videoStream = stream;
-      video.srcObject = stream;
-      video.setAttribute("playsinline", true);
-      video.play();
-      requestAnimationFrame(tickQR);
-    })
-    .catch(err => alert("Camera access denied: " + err));
-}
-
-function tickQR(){
-  const video = document.getElementById("qrVideo");
-  if(video.readyState === video.HAVE_ENOUGH_DATA){
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-    if(code){
-      // Stop video stream
-      videoStream.getTracks().forEach(track => track.stop());
-      video.style.display = "none";
-      handleQRData(code.data);
-      return;
-    }
-  }
-  requestAnimationFrame(tickQR);
-}
-
-function handleQRData(data){
-  // Expect format: Driver|Truck
-  const [driver, truck] = data.split("|");
-  const timeIn = new Date().toISOString().slice(0,16);
-
-  fetch(SCRIPT_URL, {
-    method:"POST",
-    body: JSON.stringify({ action:"checkIn", site: currentSite, driver, truck, timeIn })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.success){
-      showConfirm("Check-in successful!");
-      loadOnSiteList();
-    } else {
-      alert("Error submitting entry");
-    }
-  });
+  loadOnSite();
 }
 </script>
 </body>
