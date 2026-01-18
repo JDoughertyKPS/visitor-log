@@ -80,7 +80,7 @@ input {
 <body>
 
 <!-- LOGIN -->
-<div id="login">
+<div id="login" style="z-index:20;">
   <h2>Enter Passcode</h2>
   <input type="password" id="code">
   <br>
@@ -118,7 +118,7 @@ input {
   <button onclick="showTab('list')">SITE LIST</button>
 </div>
 
-<!-- MANUAL MODAL -->
+<!-- MANUAL ENTRY MODAL -->
 <div id="manual" class="modal hidden">
   <div class="modal-content">
     <h3>Manual Check In</h3>
@@ -148,7 +148,7 @@ let SITE = "";
 let LIST = [];
 let videoStream;
 
-// LOGIN
+// ---------------- LOGIN ----------------
 function login() {
   const passInput = document.getElementById("code");
   const c = passInput.value;
@@ -159,7 +159,7 @@ function login() {
   document.getElementById("siteSelect").classList.remove("hidden");
 }
 
-// SITE SELECT
+// ---------------- SITE SELECT ----------------
 function selectSite(s) {
   SITE = s;
   document.getElementById("siteSelect").classList.add("hidden");
@@ -168,16 +168,16 @@ function selectSite(s) {
   document.getElementById("siteTitle").innerText = s;
 }
 
-// TABS
+// ---------------- TABS ----------------
 function showTab(t) {
-  closeManual();  // ensure manual modal closes if switching tabs
-  closeScanner(); // ensure scanner closes if switching tabs
+  closeManual();
+  closeScanner();
   document.getElementById("checkin").classList.toggle("hidden", t !== "checkin");
   document.getElementById("list").classList.toggle("hidden", t !== "list");
   if (t === "list") loadList();
 }
 
-// MANUAL ENTRY
+// ---------------- MANUAL ENTRY ----------------
 function openManual() { 
   const now = new Date();
   const tzOffset = now.getTimezoneOffset() * 60000;
@@ -199,14 +199,14 @@ function manualCheckin() {
   alert("Checked In");
 }
 
-// SEND TO SCRIPT
+// ---------------- SEND TO SCRIPT ----------------
 function send(action, driver="", truck="", time="") {
   let url = `${API}?action=${action}&site=${encodeURIComponent(SITE)}&driver=${encodeURIComponent(driver)}&truck=${encodeURIComponent(truck)}`;
   if (time) url += `&time=${encodeURIComponent(time)}`;
   fetch(url);
 }
 
-// LOAD SITE LIST
+// ---------------- SITE LIST ----------------
 function loadList() {
   fetch(`${API}?action=list&site=${encodeURIComponent(SITE)}`)
     .then(r => r.json())
@@ -232,14 +232,14 @@ function renderList(query="") {
   });
 }
 
-// CHECKOUT
+// ---------------- CHECKOUT ----------------
 function checkout(driver) {
   send("checkout", driver);
   alert("Signed Out");
   loadList();
 }
 
-// CAMERA SCANNER MODAL
+// ---------------- CAMERA SCANNER ----------------
 function openScanner() {
   document.getElementById("scanner").classList.remove("hidden");
   const video = document.getElementById("video");
@@ -260,23 +260,12 @@ function closeScanner() {
   }
 }
 
-// BASIC QR SCANNER LOOP
+// ---------------- QR SCAN LOOP (placeholder) ----------------
 function scanLoop() {
   const video = document.getElementById("video");
   if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-  // Using jsQR library would be best; for now we simulate plain text QR detection
-  // If you have plain text: DRIVER|TRUCK in QR, simulate detection here:
-  // Example simulation: we could parse from an actual QR library later
-  // For now, just leave scanning to be handled by real jsQR integration
-
+  // TODO: integrate jsQR or other QR library here
   requestAnimationFrame(scanLoop);
 }
 </script>
