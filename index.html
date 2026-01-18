@@ -256,7 +256,10 @@ document.addEventListener("DOMContentLoaded", function() {
       .then(stream => { 
         video.srcObject = stream; 
         videoStream = stream;
-        scanLoop();
+        video.onloadedmetadata = () => {
+          video.play();
+          scanLoop();
+        };
       }).catch(err => alert("Camera not accessible: " + err));
   }
 
@@ -273,16 +276,20 @@ document.addEventListener("DOMContentLoaded", function() {
   function scanLoop() {
     const video = document.getElementById("video");
     if (!videoStream || document.getElementById("scanner").classList.contains("hidden")) return;
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      requestAnimationFrame(scanLoop);
+      return;
+    }
 
     const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(imageData.data, imageData.width, imageData.height);
     if (code) {
-      // QR text expected format: "Driver|Truck"
       const [driverVal, truckVal] = code.data.split("|");
       if (driverVal && truckVal) {
         send("checkin", driverVal.trim(), truckVal.trim());
@@ -292,6 +299,7 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
       }
     }
+
     requestAnimationFrame(scanLoop);
   }
 
